@@ -1,36 +1,107 @@
-LOAN DEFAULT PREDICTION WITH TIME-BASED VALIDATION
+ Loan Default Prediction with Time-Based Validation
 
-I built a model that predicts whether a Lending Club loan will go bad at the moment it is approved, then checked it the way it would be used in practice: trained on the past, tested on the future, checked for leakage and calibration, and turned the probabilities into an approve/reject decision using costs.
+ Project Overview
 
-The decisions and changes behind each step are written at the top of each step in the notebook.
+I built a machine learning model to predict whether a Lending Club loan
+would become a bad loan at the time of approval.
 
-Data: Lending Club loan data on Kaggle. I used 36-month loans issued 2012-2015 (589,315 loans), trained on 2012-2014 and tested on 2015.
+Rather than using a random train/test split, I used a time-based split:
+the model was trained on loans issued from 2012–2014 and tested on 2015
+loans. This better reflects how a model would be used in production.
 
-SUMMARY
-Task: predict bad_loan (Charged Off or Default) using only information known at approval.
-Honest performance: PR-AUC about 0.27 against a no-skill baseline of 0.149, so roughly 1.8x better than guessing.
-Leakage: two columns recorded after the outcome pushed PR-AUC to 0.98. Removing them dropped it to 0.27.
-Calibration: the model underestimated 2015 risk. Platt scaling helped partly.
-Decision: a cost-based threshold cut total cost by about 19% compared with approving everyone (invented costs).
+ Key Questions
 
-RESULTS
+- Can loan default risk be predicted using only information available at approval?
+- How much does data leakage inflate model performance?
+- How well does the model generalize to future loans?
+- Can predicted probabilities be converted into a practical approve/reject decision?
 
-Step	   Result
-Leakage check:  PR-AUC 0.98 with leaked columns, 0.27 without. recoveries and total_pymnt carried nearly all the importance
-Time split:	Train 2012-2014 (13.2% bad, 306,462 loans), test 2015 (14.9% bad, 282,853 loans)
-Logistic regression:	ROC-AUC 0.689, PR-AUC 0.263
-Gradient boosting:	ROC-AUC 0.692, PR-AUC 0.270 (a near tie with logistic regression)
-Calibration (2015):	Mean predicted 10.9% raw vs. 14.9% actual. Platt: 12.7%, Brier 0.1218 to 0.1206
-Cost threshold:	0.167 from costs of 1,000 (false positive) and 5,000 (false negative) naira
+ Dataset
 
-Strategy on 2015 loans	  Wrongly rejected	 Missed defaults	 Total cost (naira)
-Model at threshold 0.167	 50,260	            24,064	          170.6M
-Approve everyone	          0	                42,048	          210.2M
-Reject everyone          	 240,805	          0	                240.8M
+- Source: Lending Club loan data
+- 36-month loans
+- Period: 2012–2015
+- Total loans: 589,315
+- Training period: 2012–2014
+- Test period: 2015
 
-LIMITATIONS
-Selection bias: outcomes exist only for loans Lending Club approved, so the model may not hold for the full applicant pool.
-Drift: the bad rate rose from 13.2% to 14.9%. Calibration learned on 2014 cannot fully correct 2015, so recalibrating on recent data would be needed in practice.
-One split, no uncertainty: I did not measure how much the scores vary, so small differences (such as logistic regression vs. gradient boosting) should not be over-read.
-Invented costs: the savings figure is illustrative. Real costs would change the threshold.
-Not done: hyperparameter tuning, a more careful encoding of categories for gradient boosting, and capping revol_bal.
+ Methodology
+
+1. Data cleaning and preparation
+2. Target creation (`bad_loan`)
+3. Leakage investigation
+4. Time-based train/test split
+5. Logistic Regression
+6. Gradient Boosting
+7. Probability calibration
+8. Cost-based threshold selection
+9. Business-cost comparison
+
+ Results
+
+| Model | ROC-AUC | PR-AUC |
+|---|---:|---:|
+| Logistic Regression | 0.689 | 0.263 |
+| Gradient Boosting | 0.692 | 0.270 |
+
+The 2015 default rate was 14.9%, giving a no-skill PR-AUC baseline
+of approximately 0.149.
+
+The Gradient Boosting model achieved a PR-AUC of 0.270.
+
+ Leakage Investigation
+
+Including post-outcome variables produced a PR-AUC of approximately
+0.98.
+
+After removing these variables, performance dropped to approximately
+0.27.
+
+This demonstrated how strongly data leakage can inflate model performance.
+
+ Calibration
+
+The raw model underestimated 2015 risk:
+
+- Mean predicted probability: 10.9%
+- Actual default rate: 14.9%
+
+Platt scaling improved the mean prediction to 12.7% and slightly
+improved the Brier score from 0.1218 to 0.1206.
+
+ Cost-Based Decision
+
+A threshold of 0.167 was selected using illustrative costs:
+
+- False positive: ₦1,000
+- False negative: ₦5,000
+
+| Strategy | Wrong Rejections | Missed Defaults | Total Cost |
+|---|---:|---:|---:|
+| Model (0.167) | 50,260 | 24,064 | **₦170.6M** |
+| Approve Everyone | 0 | 42,048 | ₦210.2M |
+| Reject Everyone | 240,805 | 0 | ₦240.8M |
+
+Using these invented costs, the model reduced estimated cost by about
+₦39.6M (approximately 19%) compared with approving everyone.
+
+ Limitations
+
+- The dataset contains only loans that Lending Club approved.
+- Default rates changed between the training and test periods.
+- Only one time-based split was used.
+- The costs used for threshold selection are illustrative.
+- Further hyperparameter tuning was not performed.
+
+ Future Improvements
+
+- Test additional time periods
+- Perform cross-validation using rolling time windows
+- Improve categorical feature encoding
+- Explore additional models
+- Recalibrate probabilities using more recent data
+- Test the model on a more representative applicant population
+
+ Notebook
+The complete analysis, code, visualizations, and results are available
+in the Jupyter notebook in this repository.
